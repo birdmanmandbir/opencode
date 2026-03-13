@@ -509,16 +509,6 @@ function App() {
       },
     },
     {
-      title: "Agent cycle",
-      value: "agent.cycle",
-      keybind: "agent_cycle",
-      category: "Agent",
-      hidden: true,
-      onSelect: () => {
-        local.agent.move(1)
-      },
-    },
-    {
       title: "Variant cycle",
       value: "variant.cycle",
       keybind: "variant_cycle",
@@ -526,16 +516,6 @@ function App() {
       hidden: true,
       onSelect: () => {
         local.model.variant.cycle()
-      },
-    },
-    {
-      title: "Agent cycle reverse",
-      value: "agent.cycle.reverse",
-      keybind: "agent_cycle_reverse",
-      category: "Agent",
-      hidden: true,
-      onSelect: () => {
-        local.agent.move(-1)
       },
     },
     {
