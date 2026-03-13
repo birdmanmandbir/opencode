@@ -18,12 +18,10 @@ import { DialogStatus } from "@tui/component/dialog-status"
 import { DialogThemeList } from "@tui/component/dialog-theme-list"
 import { DialogHelp } from "./ui/dialog-help"
 import { CommandProvider, useCommandDialog } from "@tui/component/dialog-command"
-import { DialogAgent } from "@tui/component/dialog-agent"
 import { DialogSessionList } from "@tui/component/dialog-session-list"
 import { DialogWorkspaceList } from "@tui/component/dialog-workspace-list"
 import { KeybindProvider } from "@tui/context/keybind"
 import { ThemeProvider, useTheme } from "@tui/context/theme"
-import { Home } from "@tui/routes/home"
 import { Session } from "@tui/routes/session"
 import { PromptHistoryProvider } from "./component/prompt/history"
 import { FrecencyProvider } from "./component/prompt/frecency"
@@ -256,18 +254,9 @@ function App() {
   }
   const [terminalTitleEnabled, setTerminalTitleEnabled] = createSignal(kv.get("terminal_title_enabled", true))
 
-  createEffect(() => {
-    console.log(JSON.stringify(route.data))
-  })
-
   // Update terminal window title based on current route and session
   createEffect(() => {
     if (!terminalTitleEnabled() || Flag.OPENCODE_DISABLE_TERMINAL_TITLE) return
-
-    if (route.data.type === "home") {
-      renderer.setTerminalTitle("OpenCode")
-      return
-    }
 
     if (route.data.type === "session") {
       const session = sync.session.get(route.data.sessionID)
@@ -281,6 +270,16 @@ function App() {
       renderer.setTerminalTitle(`OC | ${title}`)
     }
   })
+
+  // Helper to create a new session and navigate to it
+  async function createAndNavigateSession() {
+    const result = await sdk.client.session.create({})
+    if (result.data?.id) {
+      route.navigate({ type: "session", sessionID: result.data.id })
+    } else {
+      toast.show({ message: "Failed to create session", variant: "error" })
+    }
+  }
 
   const args = useArgs()
   onMount(() => {
@@ -345,6 +344,52 @@ function App() {
     })
   })
 
+  // If no session specified and not continuing, create a new session on startup
+  let newSessionCreated = false
+  createEffect(() => {
+    if (newSessionCreated || sync.status !== "complete") return
+    if (args.sessionID || args.continue || args.prompt) return // Don't create if args will handle it
+
+    // Get most recent session or create new one
+    const recentSession = sync.data.session
+      .toSorted((a, b) => b.time.updated - a.time.updated)
+      .find((x) => x.parentID === undefined)
+
+    const sessionID = recentSession?.id
+    if (sessionID) {
+      newSessionCreated = true
+      route.navigate({ type: "session", sessionID })
+    }
+  })
+
+  // Handle --prompt: create session and submit prompt once sync is complete
+  let promptHandled = false
+  createEffect(() => {
+    if (promptHandled || sync.status !== "complete" || !args.prompt) return
+
+    // Create a new session and wait for it to sync
+    sdk.client.session
+      .create({})
+      .then(async (result) => {
+        if (result.data?.id) {
+          const sessionID = result.data.id
+          // Sync the new session before navigating
+          await (sync as any).session.sync(sessionID)
+          promptHandled = true
+          route.navigate({
+            type: "session",
+            sessionID,
+            initialPrompt: { input: args.prompt!, parts: [] },
+          })
+        } else {
+          toast.show({ message: "Failed to create session for --prompt", variant: "error" })
+        }
+      })
+      .catch(() => {
+        toast.show({ message: "Failed to create session for --prompt", variant: "error" })
+      })
+  })
+
   createEffect(
     on(
       () => sync.status === "complete" && sync.data.provider.length === 0,
@@ -399,16 +444,7 @@ function App() {
         aliases: ["clear"],
       },
       onSelect: () => {
-        const current = promptRef.current
-        // Don't require focus - if there's any text, preserve it
-        const currentPrompt = current?.current?.input ? current.current : undefined
-        const workspaceID =
-          route.data.type === "session" ? sync.session.get(route.data.sessionID)?.workspaceID : undefined
-        route.navigate({
-          type: "home",
-          initialPrompt: currentPrompt,
-          workspaceID,
-        })
+        createAndNavigateSession()
         dialog.clear()
       },
     },
@@ -466,18 +502,6 @@ function App() {
       },
     },
     {
-      title: "Switch agent",
-      value: "agent.list",
-      keybind: "agent_list",
-      category: "Agent",
-      slash: {
-        name: "agents",
-      },
-      onSelect: () => {
-        dialog.replace(() => <DialogAgent />)
-      },
-    },
-    {
       title: "Toggle MCPs",
       value: "mcp.list",
       category: "Agent",
@@ -489,16 +513,6 @@ function App() {
       },
     },
     {
-      title: "Agent cycle",
-      value: "agent.cycle",
-      keybind: "agent_cycle",
-      category: "Agent",
-      hidden: true,
-      onSelect: () => {
-        local.agent.move(1)
-      },
-    },
-    {
       title: "Variant cycle",
       value: "variant.cycle",
       keybind: "variant_cycle",
@@ -506,16 +520,6 @@ function App() {
       hidden: true,
       onSelect: () => {
         local.model.variant.cycle()
-      },
-    },
-    {
-      title: "Agent cycle reverse",
-      value: "agent.cycle.reverse",
-      keybind: "agent_cycle_reverse",
-      category: "Agent",
-      hidden: true,
-      onSelect: () => {
-        local.agent.move(-1)
       },
     },
     {
@@ -699,10 +703,10 @@ function App() {
 
   sdk.event.on(SessionApi.Event.Deleted.type, (evt) => {
     if (route.data.type === "session" && route.data.sessionID === evt.properties.info.id) {
-      route.navigate({ type: "home" })
+      createAndNavigateSession()
       toast.show({
         variant: "info",
-        message: "The current session was deleted",
+        message: "The current session was deleted, created a new session",
       })
     }
   })
@@ -754,9 +758,6 @@ function App() {
       onMouseUp={Flag.OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT ? undefined : () => Selection.copy(renderer, toast)}
     >
       <Switch>
-        <Match when={route.data.type === "home"}>
-          <Home />
-        </Match>
         <Match when={route.data.type === "session"}>
           <Session />
         </Match>

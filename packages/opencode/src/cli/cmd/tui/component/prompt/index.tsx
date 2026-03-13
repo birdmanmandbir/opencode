@@ -159,13 +159,8 @@ export function Prompt(props: PromptProps) {
 
       syncedSessionID = sessionID
 
-      // Only set agent if it's a primary agent (not a subagent)
-      const isPrimaryAgent = local.agent.list().some((x) => x.name === msg.agent)
-      if (msg.agent && isPrimaryAgent) {
-        local.agent.set(msg.agent)
-        if (msg.model) local.model.set(msg.model)
-        if (msg.variant) local.model.variant.set(msg.variant)
-      }
+      // Remove: Don't auto-switch agent based on message history
+      // Agent is set at session start via --agent flag, not changed mid-session
     }
   })
 
@@ -629,6 +624,17 @@ export function Prompt(props: PromptProps) {
           })),
       })
     } else {
+      const promptParts = [
+        {
+          id: PartID.ascending(),
+          type: "text" as const,
+          text: inputText,
+        },
+        ...nonTextParts.map((x) => ({
+          id: PartID.ascending(),
+          ...x,
+        })),
+      ]
       sdk.client.session
         .prompt({
           sessionID,
@@ -637,19 +643,12 @@ export function Prompt(props: PromptProps) {
           agent: local.agent.current().name,
           model: selectedModel,
           variant,
-          parts: [
-            {
-              id: PartID.ascending(),
-              type: "text",
-              text: inputText,
-            },
-            ...nonTextParts.map((x) => ({
-              id: PartID.ascending(),
-              ...x,
-            })),
-          ],
+          parts: promptParts,
         })
-        .catch(() => {})
+        .catch((err) => {
+          console.error("Prompt submission failed:", err)
+          toast.show({ message: "Failed to send message", variant: "error" })
+        })
     }
     history.append({
       ...store.prompt,
@@ -1149,9 +1148,6 @@ export function Prompt(props: PromptProps) {
                       {keybind.print("variant_cycle")} <span style={{ fg: theme.textMuted }}>variants</span>
                     </text>
                   </Show>
-                  <text fg={theme.text}>
-                    {keybind.print("agent_cycle")} <span style={{ fg: theme.textMuted }}>agents</span>
-                  </text>
                   <text fg={theme.text}>
                     {keybind.print("command_list")} <span style={{ fg: theme.textMuted }}>commands</span>
                   </text>

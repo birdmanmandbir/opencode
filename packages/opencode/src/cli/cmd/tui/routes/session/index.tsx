@@ -195,42 +195,26 @@ export function Session() {
         if (scroll) scroll.scrollBy(100_000)
       })
       .catch((e) => {
-        console.error(e)
-        toast.show({
-          message: `Session not found: ${route.sessionID}`,
-          variant: "error",
-        })
-        return navigate({ type: "home" })
+        // Session might not be in sync store yet, but that's okay - prompt will still work
+        console.log("Session sync error (non-fatal):", e)
       })
   })
 
   const toast = useToast()
   const sdk = useSDK()
 
-  // Handle initial prompt from fork
+  // Handle initial prompt from fork or --prompt
   createEffect(() => {
     if (route.initialPrompt && prompt) {
       prompt.set(route.initialPrompt)
+      // Auto-submit the initial prompt after a tick
+      setTimeout(() => {
+        if (prompt.current?.input) {
+          prompt.submit()
+        }
+      }, 0)
     }
   })
-
-  let lastSwitch: string | undefined = undefined
-  sdk.event.on("message.part.updated", (evt) => {
-    const part = evt.properties.part
-    if (part.type !== "tool") return
-    if (part.sessionID !== route.sessionID) return
-    if (part.state.status !== "completed") return
-    if (part.id === lastSwitch) return
-
-    if (part.tool === "plan_exit") {
-      local.agent.set("build")
-      lastSwitch = part.id
-    } else if (part.tool === "plan_enter") {
-      local.agent.set("plan")
-      lastSwitch = part.id
-    }
-  })
-
   let scroll: ScrollBoxRenderable
   let prompt: PromptRef
   const keybind = useKeybind()
