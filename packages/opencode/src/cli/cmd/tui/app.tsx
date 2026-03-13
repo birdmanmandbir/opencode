@@ -362,13 +362,16 @@ function App() {
   createEffect(() => {
     if (promptHandled || sync.status !== "complete" || !args.prompt) return
 
-    // Create a new session
-    sdk.client.session.create({}).then((result) => {
+    // Create a new session and wait for it to sync
+    sdk.client.session.create({}).then(async (result) => {
       if (result.data?.id) {
+        const sessionID = result.data.id
+        // Sync the new session before navigating (cast to any to access sync method)
+        await (sync as any).sync(sessionID)
         promptHandled = true
         route.navigate({
           type: "session",
-          sessionID: result.data.id,
+          sessionID,
           initialPrompt: { input: args.prompt!, parts: [] },
         })
       } else {
