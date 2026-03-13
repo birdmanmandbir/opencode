@@ -360,14 +360,16 @@ function App() {
   // Handle --prompt: create session and submit prompt once sync is complete
   let promptHandled = false
   createEffect(() => {
+    console.log("[--prompt] effect check:", { status: sync.status, prompt: args.prompt, handled: promptHandled })
     if (promptHandled || sync.status !== "complete" || !args.prompt) return
 
     // Create a new session and wait for it to sync
     sdk.client.session.create({}).then(async (result) => {
+      console.log("[--prompt] session.create result:", JSON.stringify(result))
       if (result.data?.id) {
         const sessionID = result.data.id
-        // Sync the new session before navigating (cast to any to access sync method)
-        await (sync as any).sync(sessionID)
+        // Sync the new session before navigating
+        await (sync as any).session.sync(sessionID)
         promptHandled = true
         route.navigate({
           type: "session",
