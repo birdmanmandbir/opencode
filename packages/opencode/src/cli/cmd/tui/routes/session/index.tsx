@@ -207,10 +207,16 @@ export function Session() {
   const toast = useToast()
   const sdk = useSDK()
 
-  // Handle initial prompt from fork
+  // Handle initial prompt from fork or --prompt
   createEffect(() => {
     if (route.initialPrompt && prompt) {
       prompt.set(route.initialPrompt)
+      // Auto-submit the initial prompt after a tick
+      setTimeout(() => {
+        if (prompt.current?.input) {
+          prompt.submit()
+        }
+      }, 0)
     }
   })
 

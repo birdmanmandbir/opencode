@@ -23,7 +23,6 @@ import { DialogSessionList } from "@tui/component/dialog-session-list"
 import { DialogWorkspaceList } from "@tui/component/dialog-workspace-list"
 import { KeybindProvider } from "@tui/context/keybind"
 import { ThemeProvider, useTheme } from "@tui/context/theme"
-import { Home } from "@tui/routes/home"
 import { Session } from "@tui/routes/session"
 import { PromptHistoryProvider } from "./component/prompt/history"
 import { FrecencyProvider } from "./component/prompt/frecency"
@@ -264,11 +263,6 @@ function App() {
   createEffect(() => {
     if (!terminalTitleEnabled() || Flag.OPENCODE_DISABLE_TERMINAL_TITLE) return
 
-    if (route.data.type === "home") {
-      renderer.setTerminalTitle("OpenCode")
-      return
-    }
-
     if (route.data.type === "session") {
       const session = sync.session.get(route.data.sessionID)
       if (!session || SessionApi.isDefaultTitle(session.title)) {
@@ -341,6 +335,56 @@ function App() {
         route.navigate({ type: "session", sessionID: result.data.id })
       } else {
         toast.show({ message: "Failed to fork session", variant: "error" })
+      }
+    })
+  })
+
+  // If no session specified and not continuing, create a new session on startup
+  let newSessionCreated = false
+  createEffect(() => {
+    if (newSessionCreated || sync.status !== "complete") return
+    if (args.sessionID || args.continue || args.prompt) return // Don't create if args will handle it
+
+    // Get most recent session or create new one
+    const recentSession = sync.data.session
+      .toSorted((a, b) => b.time.updated - a.time.updated)
+      .find((x) => x.parentID === undefined)
+
+    const sessionID = recentSession?.id
+    if (sessionID) {
+      newSessionCreated = true
+      route.navigate({ type: "session", sessionID })
+    }
+  })
+
+  // Handle "home" navigation - create a new session instead
+  let homeHandled = false
+  createEffect(() => {
+    if (homeHandled || sync.status !== "complete" || route.data.type !== "home") return
+    homeHandled = true
+    sdk.client.session.create({}).then((result) => {
+      if (result.data?.id) {
+        route.navigate({ type: "session", sessionID: result.data.id })
+      }
+    })
+  })
+
+  // Handle --prompt: create session and submit prompt once sync is complete
+  let promptHandled = false
+  createEffect(() => {
+    if (promptHandled || sync.status !== "complete" || !args.prompt) return
+
+    // Create a new session
+    sdk.client.session.create({}).then((result) => {
+      if (result.data?.id) {
+        promptHandled = true
+        route.navigate({
+          type: "session",
+          sessionID: result.data.id,
+          initialPrompt: { input: args.prompt!, parts: [] },
+        })
+      } else {
+        toast.show({ message: "Failed to create session for --prompt", variant: "error" })
       }
     })
   })
@@ -699,10 +743,15 @@ function App() {
 
   sdk.event.on(SessionApi.Event.Deleted.type, (evt) => {
     if (route.data.type === "session" && route.data.sessionID === evt.properties.info.id) {
-      route.navigate({ type: "home" })
+      // Create a new session instead of going to home
+      sdk.client.session.create({}).then((result) => {
+        if (result.data?.id) {
+          route.navigate({ type: "session", sessionID: result.data.id })
+        }
+      })
       toast.show({
         variant: "info",
-        message: "The current session was deleted",
+        message: "The current session was deleted, created a new session",
       })
     }
   })
@@ -754,9 +803,6 @@ function App() {
       onMouseUp={Flag.OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT ? undefined : () => Selection.copy(renderer, toast)}
     >
       <Switch>
-        <Match when={route.data.type === "home"}>
-          <Home />
-        </Match>
         <Match when={route.data.type === "session"}>
           <Session />
         </Match>

@@ -2,6 +2,7 @@ import { createStore } from "solid-js/store"
 import { createSimpleContext } from "./helper"
 import type { PromptInfo } from "../component/prompt/history"
 
+// HomeRoute is kept for backward compatibility but just triggers new session creation
 export type HomeRoute = {
   type: "home"
   initialPrompt?: PromptInfo
@@ -23,7 +24,8 @@ export const { use: useRoute, provider: RouteProvider } = createSimpleContext({
       process.env["OPENCODE_ROUTE"]
         ? JSON.parse(process.env["OPENCODE_ROUTE"])
         : {
-            type: "home",
+            type: "session",
+            sessionID: "",
           },
     )
 
