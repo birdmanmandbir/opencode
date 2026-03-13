@@ -526,7 +526,15 @@ export function Prompt(props: PromptProps) {
     },
   ])
 
+  let lastSubmitTime = 0
   async function submit() {
+    // Prevent duplicate submissions within 1 second (fixes --prompt mode double-submit bug)
+    const now = Date.now()
+    if (now - lastSubmitTime < 1000) {
+      return
+    }
+    lastSubmitTime = now
+
     if (props.disabled) return
     if (autocomplete?.visible) return
     if (!store.prompt.input) return
@@ -629,6 +637,17 @@ export function Prompt(props: PromptProps) {
           })),
       })
     } else {
+      const promptParts = [
+        {
+          id: PartID.ascending(),
+          type: "text" as const,
+          text: inputText,
+        },
+        ...nonTextParts.map((x) => ({
+          id: PartID.ascending(),
+          ...x,
+        })),
+      ]
       sdk.client.session
         .prompt({
           sessionID,
@@ -637,17 +656,7 @@ export function Prompt(props: PromptProps) {
           agent: local.agent.current().name,
           model: selectedModel,
           variant,
-          parts: [
-            {
-              id: PartID.ascending(),
-              type: "text",
-              text: inputText,
-            },
-            ...nonTextParts.map((x) => ({
-              id: PartID.ascending(),
-              ...x,
-            })),
-          ],
+          parts: promptParts,
         })
         .catch(() => {})
     }
