@@ -195,17 +195,8 @@ export function Session() {
         if (scroll) scroll.scrollBy(100_000)
       })
       .catch((e) => {
-        console.error(e)
-        toast.show({
-          message: `Session not found: ${route.sessionID}`,
-          variant: "error",
-        })
-        // Create a new session instead of going home
-        sdk.client.session.create({}).then((result) => {
-          if (result.data?.id) {
-            navigate({ type: "session", sessionID: result.data.id })
-          }
-        })
+        // Session might not be in sync store yet, but that's okay - prompt will still work
+        console.log("Session sync error (non-fatal):", e)
       })
   })
 
