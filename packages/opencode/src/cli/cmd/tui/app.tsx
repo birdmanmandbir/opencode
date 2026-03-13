@@ -275,6 +275,16 @@ function App() {
     }
   })
 
+  // Helper to create a new session and navigate to it
+  async function createAndNavigateSession() {
+    const result = await sdk.client.session.create({})
+    if (result.data?.id) {
+      route.navigate({ type: "session", sessionID: result.data.id })
+    } else {
+      toast.show({ message: "Failed to create session", variant: "error" })
+    }
+  }
+
   const args = useArgs()
   onMount(() => {
     batch(() => {
@@ -438,17 +448,7 @@ function App() {
         aliases: ["clear"],
       },
       onSelect: () => {
-        // Create a new session instead of going to home
-        sdk.client.session
-          .create({})
-          .then((result) => {
-            if (result.data?.id) {
-              route.navigate({ type: "session", sessionID: result.data.id })
-            }
-          })
-          .catch(() => {
-            toast.show({ message: "Failed to create session", variant: "error" })
-          })
+        createAndNavigateSession()
         dialog.clear()
       },
     },
@@ -707,17 +707,7 @@ function App() {
 
   sdk.event.on(SessionApi.Event.Deleted.type, (evt) => {
     if (route.data.type === "session" && route.data.sessionID === evt.properties.info.id) {
-      // Create a new session instead of going to home
-      sdk.client.session
-        .create({})
-        .then((result) => {
-          if (result.data?.id) {
-            route.navigate({ type: "session", sessionID: result.data.id })
-          }
-        })
-        .catch(() => {
-          toast.show({ message: "Failed to create new session after delete", variant: "error" })
-        })
+      createAndNavigateSession()
       toast.show({
         variant: "info",
         message: "The current session was deleted, created a new session",
