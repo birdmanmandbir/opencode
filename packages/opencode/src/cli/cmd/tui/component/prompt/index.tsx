@@ -526,15 +526,7 @@ export function Prompt(props: PromptProps) {
     },
   ])
 
-  let lastSubmitTime = 0
   async function submit() {
-    // Prevent duplicate submissions within 1 second (fixes --prompt mode double-submit bug)
-    const now = Date.now()
-    if (now - lastSubmitTime < 1000) {
-      return
-    }
-    lastSubmitTime = now
-
     if (props.disabled) return
     if (autocomplete?.visible) return
     if (!store.prompt.input) return

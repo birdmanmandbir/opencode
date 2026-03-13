@@ -170,9 +170,11 @@ export function DialogWorkspaceList() {
         dialog.replace(() => <DialogSessionList localOnly={true} />)
         return
       }
-      route.navigate({
-        type: "home",
-      })
+      // Create a new session instead of going to home
+      const result = await sdk.client.session.create({})
+      if (result.data?.id) {
+        route.navigate({ type: "session", sessionID: result.data.id })
+      }
       dialog.clear()
       return
     }
@@ -313,9 +315,11 @@ export function DialogWorkspaceList() {
               return
             }
             if (currentWorkspaceID() === option.value) {
-              route.navigate({
-                type: "home",
-              })
+              // Create a new session instead of going to home
+              const newResult = await sdk.client.session.create({})
+              if (newResult.data?.id) {
+                route.navigate({ type: "session", sessionID: newResult.data.id })
+              }
             }
             await sync.workspace.sync()
           },

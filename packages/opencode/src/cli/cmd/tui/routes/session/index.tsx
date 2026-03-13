@@ -200,7 +200,12 @@ export function Session() {
           message: `Session not found: ${route.sessionID}`,
           variant: "error",
         })
-        return navigate({ type: "home" })
+        // Create a new session instead of going home
+        sdk.client.session.create({}).then((result) => {
+          if (result.data?.id) {
+            navigate({ type: "session", sessionID: result.data.id })
+          }
+        })
       })
   })
 

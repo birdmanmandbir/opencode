@@ -357,18 +357,6 @@ function App() {
     }
   })
 
-  // Handle "home" navigation - create a new session instead
-  let homeHandled = false
-  createEffect(() => {
-    if (homeHandled || sync.status !== "complete" || route.data.type !== "home") return
-    homeHandled = true
-    sdk.client.session.create({}).then((result) => {
-      if (result.data?.id) {
-        route.navigate({ type: "session", sessionID: result.data.id })
-      }
-    })
-  })
-
   // Handle --prompt: create session and submit prompt once sync is complete
   let promptHandled = false
   createEffect(() => {
@@ -443,15 +431,11 @@ function App() {
         aliases: ["clear"],
       },
       onSelect: () => {
-        const current = promptRef.current
-        // Don't require focus - if there's any text, preserve it
-        const currentPrompt = current?.current?.input ? current.current : undefined
-        const workspaceID =
-          route.data.type === "session" ? sync.session.get(route.data.sessionID)?.workspaceID : undefined
-        route.navigate({
-          type: "home",
-          initialPrompt: currentPrompt,
-          workspaceID,
+        // Create a new session instead of going to home
+        sdk.client.session.create({}).then((result) => {
+          if (result.data?.id) {
+            route.navigate({ type: "session", sessionID: result.data.id })
+          }
         })
         dialog.clear()
       },
