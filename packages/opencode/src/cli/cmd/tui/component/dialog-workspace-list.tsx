@@ -171,9 +171,13 @@ export function DialogWorkspaceList() {
         return
       }
       // Create a new session instead of going to home
-      const result = await sdk.client.session.create({})
-      if (result.data?.id) {
-        route.navigate({ type: "session", sessionID: result.data.id })
+      try {
+        const result = await sdk.client.session.create({})
+        if (result.data?.id) {
+          route.navigate({ type: "session", sessionID: result.data.id })
+        }
+      } catch {
+        toast.show({ message: "Failed to create session", variant: "error" })
       }
       dialog.clear()
       return
@@ -316,9 +320,13 @@ export function DialogWorkspaceList() {
             }
             if (currentWorkspaceID() === option.value) {
               // Create a new session instead of going to home
-              const newResult = await sdk.client.session.create({})
-              if (newResult.data?.id) {
-                route.navigate({ type: "session", sessionID: newResult.data.id })
+              try {
+                const newResult = await sdk.client.session.create({})
+                if (newResult.data?.id) {
+                  route.navigate({ type: "session", sessionID: newResult.data.id })
+                }
+              } catch {
+                toast.show({ message: "Failed to create session", variant: "error" })
               }
             }
             await sync.workspace.sync()

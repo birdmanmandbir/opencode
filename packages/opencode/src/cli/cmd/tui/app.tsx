@@ -359,26 +359,29 @@ function App() {
   // Handle --prompt: create session and submit prompt once sync is complete
   let promptHandled = false
   createEffect(() => {
-    console.log("[--prompt] effect check:", { status: sync.status, prompt: args.prompt, handled: promptHandled })
     if (promptHandled || sync.status !== "complete" || !args.prompt) return
 
     // Create a new session and wait for it to sync
-    sdk.client.session.create({}).then(async (result) => {
-      console.log("[--prompt] session.create result:", JSON.stringify(result))
-      if (result.data?.id) {
-        const sessionID = result.data.id
-        // Sync the new session before navigating
-        await (sync as any).session.sync(sessionID)
-        promptHandled = true
-        route.navigate({
-          type: "session",
-          sessionID,
-          initialPrompt: { input: args.prompt!, parts: [] },
-        })
-      } else {
+    sdk.client.session
+      .create({})
+      .then(async (result) => {
+        if (result.data?.id) {
+          const sessionID = result.data.id
+          // Sync the new session before navigating
+          await (sync as any).session.sync(sessionID)
+          promptHandled = true
+          route.navigate({
+            type: "session",
+            sessionID,
+            initialPrompt: { input: args.prompt!, parts: [] },
+          })
+        } else {
+          toast.show({ message: "Failed to create session for --prompt", variant: "error" })
+        }
+      })
+      .catch(() => {
         toast.show({ message: "Failed to create session for --prompt", variant: "error" })
-      }
-    })
+      })
   })
 
   createEffect(
@@ -436,11 +439,16 @@ function App() {
       },
       onSelect: () => {
         // Create a new session instead of going to home
-        sdk.client.session.create({}).then((result) => {
-          if (result.data?.id) {
-            route.navigate({ type: "session", sessionID: result.data.id })
-          }
-        })
+        sdk.client.session
+          .create({})
+          .then((result) => {
+            if (result.data?.id) {
+              route.navigate({ type: "session", sessionID: result.data.id })
+            }
+          })
+          .catch(() => {
+            toast.show({ message: "Failed to create session", variant: "error" })
+          })
         dialog.clear()
       },
     },
@@ -700,11 +708,16 @@ function App() {
   sdk.event.on(SessionApi.Event.Deleted.type, (evt) => {
     if (route.data.type === "session" && route.data.sessionID === evt.properties.info.id) {
       // Create a new session instead of going to home
-      sdk.client.session.create({}).then((result) => {
-        if (result.data?.id) {
-          route.navigate({ type: "session", sessionID: result.data.id })
-        }
-      })
+      sdk.client.session
+        .create({})
+        .then((result) => {
+          if (result.data?.id) {
+            route.navigate({ type: "session", sessionID: result.data.id })
+          }
+        })
+        .catch(() => {
+          toast.show({ message: "Failed to create new session after delete", variant: "error" })
+        })
       toast.show({
         variant: "info",
         message: "The current session was deleted, created a new session",

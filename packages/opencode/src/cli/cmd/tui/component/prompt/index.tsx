@@ -645,7 +645,10 @@ export function Prompt(props: PromptProps) {
           variant,
           parts: promptParts,
         })
-        .catch(() => {})
+        .catch((err) => {
+          console.error("Prompt submission failed:", err)
+          toast.show({ message: "Failed to send message", variant: "error" })
+        })
     }
     history.append({
       ...store.prompt,
